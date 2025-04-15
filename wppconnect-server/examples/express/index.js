@@ -5,46 +5,74 @@ const port = process.env.PORT || 3000;
 
 app.use(express.json());
 
-let client;
+let client = null;
+let clientReady = false;
+const pendingMessages = [];
 
-// Rota raiz (GET /)
+// Rota raiz
 app.get('/', (req, res) => {
-  res.send('🚀 Servidor do WppConnect rodando com sucesso!');
+  res.send('🚀 Servidor do WppConnect está rodando!');
 });
 
-// Inicializa o cliente do WppConnect
+// Health Check
+app.get('/health', (req, res) => {
+  if (clientReady) {
+    res.status(200).send('READY');
+  } else {
+    res.status(503).send('Client not ready');
+  }
+});
+
+// Inicializa cliente WppConnect
 create({
   headless: true,
   browserArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
 })
   .then((wpp) => {
     client = wpp;
-    console.log('✅ Cliente iniciado com sucesso');
+    clientReady = true;
+    console.log('✅ Cliente WppConnect iniciado com sucesso');
+
+    // Processa mensagens pendentes
+    while (pendingMessages.length > 0) {
+      const { phone, message, res } = pendingMessages.shift();
+      sendMessageNow(phone, message, res);
+    }
   })
   .catch((error) => {
-    console.error('❌ Erro ao iniciar o cliente:', error);
+    console.error('❌ Erro ao iniciar cliente:', error);
   });
 
-// Rota para enviar mensagens
-app.post('/send-message', async (req, res) => {
-  const { phone, message } = req.body;
-
-  if (!client) {
-    console.error('⚠️ Cliente ainda não está pronto');
-    return res.status(500).send('Cliente ainda não está pronto');
-  }
-
+// Função para envio imediato
+async function sendMessageNow(phone, message, res) {
   try {
     const result = await client.sendText(`${phone}@c.us`, message);
-    console.log(`✅ Mensagem enviada para ${phone}`);
-    res.send(result);
+    console.log(`📤 Mensagem enviada para ${phone}`);
+    res.status(200).send(result);
   } catch (error) {
     console.error('❌ Erro ao enviar mensagem:', error);
-    res.status(500).send(error);
+    res.status(500).send({ error: 'Falha ao enviar mensagem', detalhes: error });
   }
+}
+
+// Rota para envio
+app.post('/send-message', (req, res) => {
+  const { phone, message } = req.body;
+
+  if (!phone || !message) {
+    return res.status(400).send({ error: 'Campos phone e message são obrigatórios' });
+  }
+
+  if (!clientReady) {
+    console.warn(`⏳ Cliente ainda não está pronto. Enfileirando mensagem para ${phone}`);
+    pendingMessages.push({ phone, message, res });
+    return;
+  }
+
+  sendMessageNow(phone, message, res);
 });
 
-// Inicia o servidor ouvindo em 0.0.0.0 para funcionar no Railway
-app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Servidor rodando em http://0.0.0.0:${port}`);
+// Inicia o servidor
+app.listen(port, () => {
+  console.log(`🚀 Servidor rodando na porta ${port}`);
 });
