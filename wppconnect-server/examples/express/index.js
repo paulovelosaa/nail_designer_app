@@ -1,92 +1,56 @@
 const express = require('express');
 const { create } = require('@wppconnect-team/wppconnect');
-const fs = require('fs');
-const open = require('open'); // <--- adiciona esse pacote!
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
 
-let client = null;
-let clientReady = false;
-const pendingMessages = [];
+let client;
 
-// Rota raiz
+// Rota raiz (GET /)
 app.get('/', (req, res) => {
-  res.send('🚀 Servidor do WppConnect está rodando!');
+  res.send('🚀 Servidor do WppConnect rodando com sucesso!');
 });
 
-// Health Check
-app.get('/health', (req, res) => {
-  if (clientReady) {
-    res.status(200).send('READY');
-  } else {
-    res.status(503).send('Client not ready');
-  }
-});
-
-// Inicializa cliente WppConnect com geração de QR
+// Inicializa o cliente do WppConnect
 create({
-  session: 'gabi-session',
   headless: true,
   browserArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
-  catchQR: async (base64Qr, asciiQR) => {
-    const imageData = base64Qr.replace(/^data:image\/png;base64,/, '');
-    const filePath = './qrcode.png';
-    fs.writeFileSync(filePath, imageData, 'base64');
-    console.log('📷 QR code salvo como qrcode.png');
+  // Mostra QR Code no navegador ao iniciar
+  statusFind: (statusSession, session) => {
+    if (['isLogged', 'qrReadSuccess'].includes(statusSession)) return;
 
-    try {
-      await open(filePath); // Abre imagem automaticamente
-      console.log('🖼️ QR code aberto automaticamente no visualizador de imagens.');
-    } catch (err) {
-      console.log('⚠️ Não foi possível abrir a imagem automaticamente:', err.message);
-    }
-  },
-  sessionPath: './tokens',
+    // Abre automaticamente no navegador padrão
+    import('open').then(open => {
+      open.default(`http://localhost:${port}`);
+    });
+  }
 })
   .then((wpp) => {
     client = wpp;
-    clientReady = true;
-    console.log('✅ Cliente WppConnect iniciado com sucesso');
-
-    // Processa mensagens enfileiradas
-    while (pendingMessages.length > 0) {
-      const { phone, message, res } = pendingMessages.shift();
-      sendMessageNow(phone, message, res);
-    }
+    console.log('✅ Cliente iniciado com sucesso');
   })
   .catch((error) => {
-    console.error('❌ Erro ao iniciar cliente:', error);
+    console.error('❌ Erro ao iniciar o cliente:', error);
   });
 
-// Envio imediato de mensagem
-async function sendMessageNow(phone, message, res) {
-  try {
-    const result = await client.sendText(`${phone}@c.us`, message);
-    console.log(`📤 Mensagem enviada para ${phone}`);
-    res.status(200).send(result);
-  } catch (error) {
-    console.error('❌ Erro ao enviar mensagem:', error);
-    res.status(500).send({ error: 'Falha ao enviar mensagem', detalhes: error });
-  }
-}
-
-// Rota de envio
-app.post('/send-message', (req, res) => {
+// Rota para enviar mensagens
+app.post('/send-message', async (req, res) => {
   const { phone, message } = req.body;
 
-  if (!phone || !message) {
-    return res.status(400).send({ error: 'Campos phone e message são obrigatórios' });
+  if (!client) {
+    console.error('⚠️ Cliente ainda não está pronto');
+    return res.status(500).send('Cliente ainda não está pronto');
   }
 
-  if (!clientReady) {
-    console.warn(`⏳ Cliente ainda não está pronto. Enfileirando mensagem para ${phone}`);
-    pendingMessages.push({ phone, message, res });
-    return;
+  try {
+    const result = await client.sendText(`${phone}@c.us`, message);
+    console.log(`✅ Mensagem enviada para ${phone}`);
+    res.send(result);
+  } catch (error) {
+    console.error('❌ Erro ao enviar mensagem:', error);
+    res.status(500).send(error);
   }
-
-  sendMessageNow(phone, message, res);
 });
 
 // Inicia o servidor
