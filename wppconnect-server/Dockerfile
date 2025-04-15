@@ -1,5 +1,5 @@
 # Etapa 1 - Imagem Node 20 + Puppeteer compatível
-FROM buildkite/puppeteer:20.9.0
+FROM ghcr.io/puppeteer/puppeteer:20.9.0
 
 # Define diretório de trabalho
 WORKDIR /app
