@@ -1,20 +1,17 @@
-# Base oficial com Node + Puppeteer + Chromium
+# Usa imagem oficial do Node + Puppeteer
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# Troca o usuário para root (essencial!)
-USER root
-
-# Define diretório de trabalho
+# Cria diretório de trabalho
 WORKDIR /app
 
-# Copia o projeto
+# Copia os arquivos
 COPY . .
 
-# Instala dependências como root
-RUN yarn install --ignore-scripts || true && yarn install --force --unsafe-perm
+# Instala dependências
+RUN yarn install --unsafe-perm
 
-# Expõe a porta padrão
+# Expõe a porta que o Railway espera
 EXPOSE 3000
 
-# Comando para iniciar
-CMD ["node", "examples/express/index.js"]
+# Inicia o servidor (ajustado para environments)
+CMD ["node", "wppconnect-server/examples/express/index.js"]
