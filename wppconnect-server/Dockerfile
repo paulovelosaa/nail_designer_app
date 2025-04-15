@@ -7,8 +7,8 @@ WORKDIR /app
 # Copia os arquivos do projeto
 COPY . .
 
-# Instala dependências do Node.js
-RUN yarn install
+# Instala dependências do Node.js com permissões elevadas
+RUN yarn install --unsafe-perm
 
 # Expõe a porta padrão do servidor
 EXPOSE 3000
