@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
   res.send('🚀 Servidor do WppConnect está rodando!');
 });
 
-// Health Check
+// Health Check (pode ser usado por serviços como Railway)
 app.get('/health', (req, res) => {
   if (clientReady) {
     res.status(200).send('READY');
@@ -25,6 +25,7 @@ app.get('/health', (req, res) => {
 
 // Inicializa cliente WppConnect
 create({
+  session: 'default',
   headless: true,
   browserArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
 })
