@@ -128,7 +128,7 @@ class _ScheduleAppointmentScreenState
 
 Future<void> _sendWhatsAppMessage(String numero, String mensagem) async {
   final telefone = numero.startsWith('55') ? numero : '55${numero.replaceAll(RegExp(r'\\D'), '')}';
-  final url = Uri.parse('http://localhost:3000/send-message'); // Substitua pelo seu domínio se estiver online
+  final url = Uri.parse('https://6d00-177-23-251-188.ngrok-free.app/send-message'); // Substitua pelo seu domínio se estiver online
 
   try {
     final response = await http.post(
