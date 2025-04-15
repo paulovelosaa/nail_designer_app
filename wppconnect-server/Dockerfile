@@ -1,17 +1,17 @@
-# Etapa 1 - Baixa a imagem Node + Puppeteer compatível
-FROM buildkite/puppeteer:latest
+# Etapa 1 - Imagem Node 20 + Puppeteer compatível
+FROM buildkite/puppeteer:20.9.0
 
-# Define diretório de trabalho dentro do container
+# Define diretório de trabalho
 WORKDIR /app
 
-# Copia tudo do repositório
+# Copia o conteúdo do projeto
 COPY . .
 
-# Instala dependências do Node.js
+# Instala dependências com Yarn
 RUN yarn install
 
-# Expõe a porta padrão usada pelo WppConnect
+# Expõe porta padrão usada no projeto
 EXPOSE 3000
 
-# Comando que inicia o servidor (ajuste conforme o script usado: ex: index.js, server.js, express.js etc)
+# Comando para iniciar o servidor
 CMD ["node", "examples/express/index.js"]
