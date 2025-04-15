@@ -1,6 +1,7 @@
 const express = require('express');
 const { create } = require('@wppconnect-team/wppconnect');
 const fs = require('fs');
+const open = require('open'); // <--- adiciona esse pacote!
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -29,10 +30,18 @@ create({
   session: 'gabi-session',
   headless: true,
   browserArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
-  catchQR: (base64Qr, asciiQR) => {
+  catchQR: async (base64Qr, asciiQR) => {
     const imageData = base64Qr.replace(/^data:image\/png;base64,/, '');
-    fs.writeFileSync('./qrcode.png', imageData, 'base64');
-    console.log('📷 QR code salvo como qrcode.png — abra e escaneie com o WhatsApp');
+    const filePath = './qrcode.png';
+    fs.writeFileSync(filePath, imageData, 'base64');
+    console.log('📷 QR code salvo como qrcode.png');
+
+    try {
+      await open(filePath); // Abre imagem automaticamente
+      console.log('🖼️ QR code aberto automaticamente no visualizador de imagens.');
+    } catch (err) {
+      console.log('⚠️ Não foi possível abrir a imagem automaticamente:', err.message);
+    }
   },
   sessionPath: './tokens',
 })
