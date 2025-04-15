@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node examples/express/index.js"
   },
   "dependencies": {
     "@wppconnect-team/wppconnect": "^1.9.1",
