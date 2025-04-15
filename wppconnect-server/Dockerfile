@@ -1,17 +1,17 @@
-# Etapa 1 - Imagem Node 20 + Puppeteer compatível
-FROM ghcr.io/puppeteer/puppeteer:20.9.0
+# Base oficial com Node + Puppeteer + Chromium
+FROM ghcr.io/puppeteer/puppeteer:latest
 
 # Define diretório de trabalho
 WORKDIR /app
 
-# Copia o conteúdo do projeto
+# Copia os arquivos do projeto
 COPY . .
 
-# Instala dependências com Yarn
+# Instala dependências do Node.js
 RUN yarn install
 
-# Expõe porta padrão usada no projeto
+# Expõe a porta padrão do servidor
 EXPOSE 3000
 
-# Comando para iniciar o servidor
+# Comando que inicia o servidor (ajuste se necessário)
 CMD ["node", "examples/express/index.js"]
