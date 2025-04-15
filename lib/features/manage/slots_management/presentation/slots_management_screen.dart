@@ -1,3 +1,4 @@
+// Arquivo: slots_management_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +14,8 @@ class SlotsManagementScreen extends StatefulWidget {
 
 class _SlotsManagementScreenState extends State<SlotsManagementScreen> {
   DateTime selectedDate = DateTime.now();
+  bool selectMultiple = false;
+  final Set<String> selectedSlots = {};
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +28,19 @@ class _SlotsManagementScreenState extends State<SlotsManagementScreen> {
         backgroundColor: const Color(0xFFFFF2F2),
         foregroundColor: Colors.black87,
         elevation: 0,
+        actions: [
+          if (selectedSlots.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.block, color: Colors.redAccent),
+              tooltip: 'Marcar selecionados como indisponíveis',
+              onPressed: () async {
+                for (final slotId in selectedSlots) {
+                  await db.collection('available_slots').doc(slotId).update({'available': false});
+                }
+                setState(() => selectedSlots.clear());
+              },
+            )
+        ],
       ),
       backgroundColor: const Color(0xFFFFF2F2),
       body: Column(
@@ -84,10 +100,36 @@ class _SlotsManagementScreenState extends State<SlotsManagementScreen> {
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final doc = docs[index];
-                    return CalendarDaySlot(
-                      slotId: doc.id,
-                      hora: doc['hora'],
-                      isAvailable: doc['available'],
+                    final slotId = doc.id;
+                    final hora = doc['hora'];
+                    final isAvailable = doc['available'];
+                    final isSelected = selectedSlots.contains(slotId);
+
+                    return GestureDetector(
+                      onLongPress: () {
+                        setState(() {
+                          if (isSelected) {
+                            selectedSlots.remove(slotId);
+                          } else {
+                            selectedSlots.add(slotId);
+                          }
+                        });
+                      },
+                      child: Stack(
+                        children: [
+                          CalendarDaySlot(
+                            slotId: slotId,
+                            hora: hora,
+                            isAvailable: isAvailable,
+                          ),
+                          if (isSelected)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Icon(Icons.check_circle, color: Colors.greenAccent.withOpacity(0.9)),
+                            )
+                        ],
+                      ),
                     );
                   },
                 );

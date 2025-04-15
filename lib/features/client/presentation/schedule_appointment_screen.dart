@@ -1,15 +1,21 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ScheduleAppointmentScreen extends StatefulWidget {
   const ScheduleAppointmentScreen({super.key});
 
   @override
-  State<ScheduleAppointmentScreen> createState() => _ScheduleAppointmentScreenState();
+  State<ScheduleAppointmentScreen> createState() =>
+      _ScheduleAppointmentScreenState();
 }
 
-class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
+class _ScheduleAppointmentScreenState
+    extends State<ScheduleAppointmentScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String? selectedServiceId, selectedServiceLabel, selectedHour;
@@ -49,12 +55,10 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
   Future<void> _loadUserData() async {
     try {
       final uid = _auth.currentUser?.uid;
-      print("📌 UID logado: $uid");
       if (uid == null) return;
 
       final doc = await _firestore.collection('users').doc(uid).get();
       final data = doc.data();
-      print("📄 Dados do usuário retornados: $data");
 
       if (data != null && mounted) {
         setState(() {
@@ -111,8 +115,6 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
 
       final hours = snapshot.docs.map((doc) => doc['hora'].toString()).toList();
 
-      print("🕐 Horários disponíveis para $selectedDay: $hours");
-
       if (mounted) {
         setState(() {
           availableHours = hours;
@@ -124,15 +126,34 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
     }
   }
 
-  Future<void> _submitAppointment() async {
-    if (!_formKey.currentState!.validate() ||
-        selectedServiceId == null ||
-        selectedDate == null ||
-        selectedHour == null) return;
+Future<void> _sendWhatsAppMessage(String numero, String mensagem) async {
+  final telefone = numero.startsWith('55') ? numero : '55${numero.replaceAll(RegExp(r'\\D'), '')}';
+  final url = Uri.parse('http://localhost:3000/send-message'); // Substitua pelo seu domínio se estiver online
 
-    setState(() => isLoading = true);
-    _formKey.currentState!.save();
+  try {
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'phone': telefone.replaceAll('+', ''),
+        'message': mensagem,
+      }),
+    );
 
+    if (response.statusCode != 200) {
+      print('❌ Erro ao enviar WhatsApp: ${response.body}');
+    }
+  } catch (e) {
+    print('❌ Erro ao conectar com API WhatsApp: $e');
+  }
+}
+
+
+Future<void> _submitAppointment() async {
+  setState(() => isLoading = true);
+  _formKey.currentState!.save();
+
+  try {
     await _firestore.collection('appointments').add({
       'userId': _auth.currentUser!.uid,
       'nome': nomeController.text,
@@ -146,6 +167,126 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
       'status': 'PENDENTE',
       'createdAt': Timestamp.now(),
     });
+
+    final slotQuery = await _firestore
+        .collection('available_slots')
+        .where('hora', isEqualTo: selectedHour)
+        .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime(
+          selectedDate!.year,
+          selectedDate!.month,
+          selectedDate!.day,
+        )))
+        .where('timestamp', isLessThan: Timestamp.fromDate(DateTime(
+          selectedDate!.year,
+          selectedDate!.month,
+          selectedDate!.day + 1,
+        )))
+        .limit(1)
+        .get();
+
+    if (slotQuery.docs.isNotEmpty) {
+      final slotDocId = slotQuery.docs.first.id;
+      await _firestore.collection('available_slots').doc(slotDocId).update({
+        'available': false,
+      });
+    }
+
+    // ✅ WhatsApp para cliente
+    await _sendWhatsAppMessage(
+      telefoneController.text,
+      'Agendamento recebido! Aguarde a confirmação da Gabi. Obrigado pela preferência, te vejo em Breve!! ',
+    );
+
+    // ✅ WhatsApp para Nail
+    await _sendWhatsAppMessage(
+      '5511965796162',
+      'Novo agendamento recebido para ${_dataController.text} às $selectedHour – Cliente: ${nomeController.text}.',
+    );
+  } catch (e) {
+    print("❌ Erro ao agendar horário: $e");
+    setState(() => isLoading = false);
+    return;
+  }
+
+  setState(() => isLoading = false);
+
+  if (!mounted) return;
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text("Agendamento Confirmado"),
+      content: const Text("Seu horário foi agendado com sucesso!"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+          child: const Text("OK"),
+        )
+      ],
+    ),
+  );
+}
+
+
+  Future<void> _confirmAndSubmitAppointment() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => isLoading = true);
+
+    try {
+      await _firestore.collection('appointments').add({
+        'userId': _auth.currentUser!.uid,
+        'nome': nomeController.text,
+        'telefone': telefoneController.text,
+        'email': emailController.text,
+        'instagram': instagramController.text,
+        'serviceId': selectedServiceId,
+        'serviceName': selectedServiceLabel,
+        'date': Timestamp.fromDate(selectedDate!),
+        'hour': selectedHour,
+        'status': 'PENDENTE',
+        'createdAt': Timestamp.now(),
+      });
+
+      final slotQuery = await _firestore
+          .collection('available_slots')
+          .where('hora', isEqualTo: selectedHour)
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime(
+            selectedDate!.year,
+            selectedDate!.month,
+            selectedDate!.day,
+          )))
+          .where('timestamp', isLessThan: Timestamp.fromDate(DateTime(
+            selectedDate!.year,
+            selectedDate!.month,
+            selectedDate!.day + 1,
+          )))
+          .limit(1)
+          .get();
+
+      if (slotQuery.docs.isNotEmpty) {
+        final slotDocId = slotQuery.docs.first.id;
+        await _firestore.collection('available_slots').doc(slotDocId).update({
+          'available': false,
+        });
+      }
+
+      // ✅ WhatsApp para cliente
+      await _sendWhatsAppMessage(
+        telefoneController.text,
+        'Agendamento recebido! Aguarde a confirmação da Gabi.',
+      );
+
+      // ✅ WhatsApp para Nail
+      await _sendWhatsAppMessage(
+        '+5511965796162',
+        'Novo agendamento recebido para ${_dataController.text} às $selectedHour – Cliente: ${nomeController.text}.',
+      );
+    } catch (e) {
+      print("❌ Erro ao agendar horário: $e");
+      setState(() => isLoading = false);
+      return;
+    }
 
     setState(() => isLoading = false);
 
@@ -204,11 +345,16 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
               TextFormField(controller: instagramController, readOnly: true, decoration: _inputDecoration("Instagram")),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 decoration: _inputDecoration("Serviço"),
                 items: services.map<DropdownMenuItem<String>>((s) {
                   return DropdownMenuItem<String>(
                     value: s['id'] as String,
-                    child: Text(s['label']),
+                    child: Text(
+                      s['label'],
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -217,6 +363,13 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
                     selectedServiceId = selected['id'] as String;
                     selectedServiceLabel = selected['label'] as String;
                   });
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Serviço selecionado: ${selected['nome']}"),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
                 },
                 value: selectedServiceId,
                 validator: (value) => value == null ? 'Selecione um serviço' : null,
@@ -233,7 +386,8 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
                   if (picked != null) {
                     setState(() {
                       selectedDate = picked;
-                      _dataController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                      _dataController.text =
+                          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
                     });
                     _loadAvailableHours();
                   }
@@ -255,13 +409,24 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
                     child: Text(hour),
                   );
                 }).toList(),
-                onChanged: (value) => setState(() => selectedHour = value),
+                onChanged: (value) {
+                  setState(() => selectedHour = value);
+
+                  if (value != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Horário selecionado: $value"),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
                 value: selectedHour,
                 validator: (value) => value == null ? 'Selecione um horário' : null,
               ),
               const SizedBox(height: 30),
               ElevatedButton(
-                onPressed: isLoading ? null : _submitAppointment,
+                onPressed: isLoading ? null : _confirmAndSubmitAppointment,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE91E63),
                   padding: const EdgeInsets.symmetric(vertical: 16),
