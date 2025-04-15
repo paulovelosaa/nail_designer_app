@@ -44,7 +44,7 @@ app.post('/send-message', async (req, res) => {
   }
 });
 
-// Inicia o servidor
-app.listen(port, () => {
-  console.log(`🚀 Servidor rodando na porta ${port}`);
+// Inicia o servidor ouvindo em 0.0.0.0 para funcionar no Railway
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Servidor rodando em http://0.0.0.0:${port}`);
 });
