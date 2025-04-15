@@ -7,7 +7,10 @@ app.use(express.json());
 
 let client;
 
-create()
+create({
+  headless: true,
+  browserArgs: ['--no-sandbox', '--disable-setuid-sandbox'],
+})
   .then((wpp) => {
     client = wpp;
     console.log('✅ Cliente iniciado com sucesso');
@@ -15,6 +18,7 @@ create()
   .catch((error) => {
     console.error('❌ Erro ao iniciar o cliente', error);
   });
+
 
 app.post('/send-message', async (req, res) => {
   const { phone, message } = req.body;
