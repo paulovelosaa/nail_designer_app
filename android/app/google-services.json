@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "712300337069",
+    "project_id": "nail-designer-app-cd536",
+    "storage_bucket": "nail-designer-app-cd536.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:712300337069:android:57b788cc3f4f8535c93324",
+        "android_client_info": {
+          "package_name": "com.example.nail_designer_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfXex_vQjNgvfMdB4FfyiX3ZSskL-BD_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:712300337069:android:e4b0cd91351d0a92c93324",
+        "android_client_info": {
+          "package_name": "com.naildesigner.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfXex_vQjNgvfMdB4FfyiX3ZSskL-BD_8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
