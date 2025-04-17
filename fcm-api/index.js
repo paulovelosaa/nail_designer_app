@@ -1,28 +1,29 @@
 import express from 'express';
 import admin from 'firebase-admin';
 import cors from 'cors';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Corrige para carregar o JSON direto via fs (compatível com Windows)
-const serviceAccountPath = path.join(__dirname, 'firebaseKey.json');
-const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Inicializa o Firebase Admin com a chave lida
+// 🔐 Carrega o conteúdo do firebaseKey.json da variável de ambiente
+const firebaseKey = process.env.FIREBASE_CREDENTIAL;
+
+if (!firebaseKey) {
+  throw new Error('Variável de ambiente FIREBASE_CREDENTIAL não definida.');
+}
+
+const serviceAccount = JSON.parse(firebaseKey);
+
+// Inicializa o Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
+// Rota para envio de notificação
 app.post('/send-notification', async (req, res) => {
   const { token, title, body } = req.body;
 
@@ -44,6 +45,7 @@ app.post('/send-notification', async (req, res) => {
   }
 });
 
+// Inicia o servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`📢 FCM API rodando em http://localhost:${PORT}`);
